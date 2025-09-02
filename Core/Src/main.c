@@ -36,7 +36,7 @@
 /* USER CODE BEGIN PD */
 
 #define pi 3.14159265358979323846
-#define MAX_SAMPLES 100
+#define MAX_SAMPLES 1000
 #define BURST_SIZE MAX_SAMPLES + 4
 #define res_8b 256
 #define res_12b 4096
@@ -61,7 +61,7 @@ TIM_HandleTypeDef htim8;
 
 /* USER CODE BEGIN PV */
 
-uint32_t sine_val[MAX_SAMPLES];
+uint16_t sine_val[MAX_SAMPLES];
 uint16_t out_seq[4097] = {0};
 
 /* USER CODE END PV */
@@ -82,28 +82,13 @@ static void MX_TIM8_Init(void);
 
 void get_sineval(void) {
   for (int i = 0; i < MAX_SAMPLES; i++) {
-    sine_val[i] = (uint32_t)(2047 + 2047 * sinf(2 * pi * i / MAX_SAMPLES));
+    sine_val[i] =
+        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / MAX_SAMPLES)));
   }
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim->Instance == TIM8) {
-    // Disable sample clock completely
-    __HAL_TIM_DISABLE(&htim2);
-
-    // // Fully stop DMA
-    // HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
-
-    // Reset TIM2 counter
-    __HAL_TIM_SET_COUNTER(&htim2, 0);
-
-    // // Restart DMA from the beginning
-    // HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val,
-    // MAX_SAMPLES,
-    //                   DAC_ALIGN_12B_R);
-
-    // Now re-enable TIM2 to start sample clock
-    __HAL_TIM_ENABLE(&htim2);
 
     HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
   }
@@ -306,7 +291,7 @@ static void MX_TIM2_Init(void) {
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 79;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 99;
+  htim2.Init.Period = 9;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
