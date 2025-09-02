@@ -36,11 +36,12 @@
 /* USER CODE BEGIN PD */
 
 #define pi 3.14159265358979323846
-#define MAX_SAMPLES 100
-#define BURST_SIZE MAX_SAMPLES + 4
+#define MAX_SAMPLES 93 * 2
 #define res_8b 256
 #define res_12b 4096
 #define FS_HZ 1000 // sample rate during burst
+
+#define NUM_PERIODS 50
 
 /* USER CODE END PD */
 
@@ -62,7 +63,6 @@ TIM_HandleTypeDef htim8;
 /* USER CODE BEGIN PV */
 
 uint16_t sine_val[MAX_SAMPLES];
-uint16_t out_seq[4097] = {0};
 
 /* USER CODE END PV */
 
@@ -88,8 +88,8 @@ void get_sineval(void) {
 }
 
 void get_sine_two_freq(void) {
-  int n21 = 1000; // samples for 21 kHz at fs=1 MHz
-  int n22 = 1000; // samples for 22 kHz at fs=1 MHz
+  int n21 = 48; // samples for 21 kHz at fs=1 MHz
+  int n22 = 45; // samples for 22 kHz at fs=1 MHz
   int idx = 0;
 
   // --- First part: 21 kHz sine ---
@@ -113,11 +113,6 @@ void get_sine_two_freq(void) {
     sine_val[idx] =
         (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n22)));
   }
-
-  // // --- Pad remaining with mid-level (optional: 2047) ---
-  // while (idx < MAX_SAMPLES) {
-  //   sine_val[idx++] = 2047;
-  // }
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
@@ -393,7 +388,7 @@ static void MX_TIM8_Init(void) {
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 7000;
+  sConfigOC.Pulse = 10000;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
