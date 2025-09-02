@@ -36,7 +36,7 @@
 /* USER CODE BEGIN PD */
 
 #define pi 3.14159265358979323846
-#define MAX_SAMPLES 93 * 2
+#define MAX_SAMPLES 100
 #define BURST_SIZE MAX_SAMPLES + 4
 #define res_8b 256
 #define res_12b 4096
@@ -88,8 +88,8 @@ void get_sineval(void) {
 }
 
 void get_sine_two_freq(void) {
-  int n21 = 48; // samples for 21 kHz at fs=1 MHz
-  int n22 = 45; // samples for 22 kHz at fs=1 MHz
+  int n21 = 1000; // samples for 21 kHz at fs=1 MHz
+  int n22 = 1000; // samples for 22 kHz at fs=1 MHz
   int idx = 0;
 
   // --- First part: 21 kHz sine ---
@@ -187,8 +187,8 @@ int main(void) {
   // Generate the sine wave lookup table
   //-------------------------------------------------------------------------------------------//
 
-  // get_sineval();
-  get_sine_two_freq();
+  get_sineval();
+  // get_sine_two_freq();
 
   //-------------------------------------------------------------------------------------------//
   // Generate the sine wave lookup table
@@ -323,9 +323,9 @@ static void MX_TIM2_Init(void) {
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 79;
+  htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 9;
+  htim2.Init.Period = 79;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
@@ -393,7 +393,7 @@ static void MX_TIM8_Init(void) {
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 2000;
+  sConfigOC.Pulse = 7000;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
