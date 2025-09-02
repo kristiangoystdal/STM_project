@@ -36,7 +36,7 @@
 /* USER CODE BEGIN PD */
 
 #define pi 3.14159265358979323846
-#define MAX_SAMPLES 1000
+#define MAX_SAMPLES 93 * 2
 #define BURST_SIZE MAX_SAMPLES + 4
 #define res_8b 256
 #define res_12b 4096
@@ -85,6 +85,39 @@ void get_sineval(void) {
     sine_val[i] =
         (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / MAX_SAMPLES)));
   }
+}
+
+void get_sine_two_freq(void) {
+  int n21 = 48; // samples for 21 kHz at fs=1 MHz
+  int n22 = 45; // samples for 22 kHz at fs=1 MHz
+  int idx = 0;
+
+  // --- First part: 21 kHz sine ---
+  for (int i = 0; i < n21 && idx < MAX_SAMPLES; i++, idx++) {
+    sine_val[idx] =
+        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n21)));
+  }
+
+  for (int i = 0; i < n21 && idx < MAX_SAMPLES; i++, idx++) {
+    sine_val[idx] =
+        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n21)));
+  }
+
+  // --- Second part: 22 kHz sine ---
+  for (int i = 0; i < n22 && idx < MAX_SAMPLES; i++, idx++) {
+    sine_val[idx] =
+        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n22)));
+  }
+
+  for (int i = 0; i < n22 && idx < MAX_SAMPLES; i++, idx++) {
+    sine_val[idx] =
+        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n22)));
+  }
+
+  // // --- Pad remaining with mid-level (optional: 2047) ---
+  // while (idx < MAX_SAMPLES) {
+  //   sine_val[idx++] = 2047;
+  // }
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
@@ -154,7 +187,8 @@ int main(void) {
   // Generate the sine wave lookup table
   //-------------------------------------------------------------------------------------------//
 
-  get_sineval();
+  // get_sineval();
+  get_sine_two_freq();
 
   //-------------------------------------------------------------------------------------------//
   // Generate the sine wave lookup table
