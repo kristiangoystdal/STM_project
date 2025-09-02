@@ -82,8 +82,31 @@ static void MX_TIM8_Init(void);
 
 void get_sineval(void) {
   for (int i = 0; i < MAX_SAMPLES; i++) {
-    sine_val[i] =
-        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / MAX_SAMPLES)));
+    sine_val[i] = (rand() % 2) ? 4095 : 0;
+  }
+}
+
+#define MAX_BITS 1024 // adjust as needed
+
+uint16_t bitstream[MAX_BITS]; // for DAC (12-bit values: 0 or 4095)
+
+void string_to_bitstream(const char *str) {
+  bitstream[0] = 2048; // Unique value to mark start (not 0 or 4095)
+  bitstream[1] = 1000; // Unique value to mark start (not 0 or 4095)
+  bitstream[2] = 3000; // Unique value to mark start (not 0 or 4095)
+  int idx = 3;
+  while (*str && idx < MAX_BITS) {
+    uint8_t c = *str++;
+    for (int b = 7; b >= 0; b--) {
+      if (idx >= MAX_BITS)
+        break;
+      // Map bit to DAC level
+      bitstream[idx++] = (c & (1 << b)) ? 4095 : 0;
+    }
+  }
+  // Optionally, fill the rest with zeros
+  while (idx < MAX_BITS) {
+    bitstream[idx++] = 0;
   }
 }
 
@@ -155,12 +178,13 @@ int main(void) {
   //-------------------------------------------------------------------------------------------//
 
   get_sineval();
+  string_to_bitstream("HELLO WORLD");
 
   //-------------------------------------------------------------------------------------------//
   // Generate the sine wave lookup table
   //-------------------------------------------------------------------------------------------//
 
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val, MAX_SAMPLES,
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)bitstream, MAX_BITS,
                     DAC_ALIGN_12B_R);
 
   //-------------------------------------------------------------------------------------------//
@@ -289,7 +313,7 @@ static void MX_TIM2_Init(void) {
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 79;
+  htim2.Init.Prescaler = 7999;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 9;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -359,7 +383,7 @@ static void MX_TIM8_Init(void) {
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 2000;
+  sConfigOC.Pulse = 10000;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
