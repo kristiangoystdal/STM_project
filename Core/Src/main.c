@@ -38,9 +38,7 @@
 #define pi 3.14159265358979323846
 #define MAX_SAMPLES_21k 48
 #define MAX_SAMPLES_22k 45
-#define BITSTREAM_LENGTH 48
-#define res_8b 256
-#define res_12b 4096
+#define BITSTREAM_LENGTH (32 * 8)
 
 #define NUM_PERIODS_21k 30
 #define NUM_PERIODS_22k 32
@@ -127,14 +125,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   }
 
   if (htim->Instance == TIM2) {
-    // This interrupt is triggered at the sample rate (1 kHz)
-    // You can add code here to handle each sample event if needed
   }
 }
 
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
-  // Called when DMA finished sending the entire buffer
-  // Do something here (e.g., switch to 22kHz sine after 50 periods)
   HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 
   current_period++;
@@ -143,10 +137,11 @@ void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
       (current_bit == 1 && current_period >= NUM_PERIODS_22k)) {
     current_idx = (current_idx + 1) % BITSTREAM_LENGTH;
     current_period = 0;
-    uint32_t next_bit = bitstream[current_idx]; // 0 -> 21k, 1 -> 22k
+    uint32_t next_bit = bitstream[current_idx];
 
     if (next_bit != current_bit) {
       HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+
       if (next_bit == 1) {
         HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val_22k,
                           MAX_SAMPLES_22k, DAC_ALIGN_12B_R);
