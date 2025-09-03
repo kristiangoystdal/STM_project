@@ -38,13 +38,12 @@
 #define pi 3.14159265358979323846
 #define MAX_SAMPLES_21k 48
 #define MAX_SAMPLES_22k 45
-#define BITSTREAM_LENGTH 32
-#define SINE_WAVE_LENGTH 30
+#define BITSTREAM_LENGTH 48
 #define res_8b 256
 #define res_12b 4096
-#define FS_HZ 1000 // sample rate during burst
 
-#define NUM_PERIODS 50
+#define NUM_PERIODS_21k 30
+#define NUM_PERIODS_22k 32
 
 /* USER CODE END PD */
 
@@ -96,6 +95,19 @@ void make_random_bitstream(void) {
   }
 }
 
+void make_bitstream_from_string(const char *str) {
+  int bit_idx = 0;
+  for (int i = 0; str[i] != '\0' && bit_idx < BITSTREAM_LENGTH; i++) {
+    for (int b = 0; b < 8 && bit_idx < BITSTREAM_LENGTH; b++) {
+      bitstream[bit_idx++] = (str[i] >> b) & 1;
+    }
+  }
+  // Fill remaining bits with 0 if string is shorter than BITSTREAM_LENGTH
+  while (bit_idx < BITSTREAM_LENGTH) {
+    bitstream[bit_idx++] = 0;
+  }
+}
+
 void get_sineval_21k(void) {
   for (int i = 0; i < MAX_SAMPLES_21k; i++) {
     sine_val_21k[i] = (uint16_t)((4095.0 / 2.0) *
@@ -126,14 +138,16 @@ void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
   HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 
   current_period++;
-  if (current_period >= NUM_PERIODS) {
+
+  if ((current_bit == 0 && current_period >= NUM_PERIODS_21k) ||
+      (current_bit == 1 && current_period >= NUM_PERIODS_22k)) {
     current_idx = (current_idx + 1) % BITSTREAM_LENGTH;
     current_period = 0;
     uint32_t next_bit = bitstream[current_idx]; // 0 -> 21k, 1 -> 22k
 
     if (next_bit != current_bit) {
       HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
-      if (next_bit == 0) {
+      if (next_bit == 1) {
         HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val_22k,
                           MAX_SAMPLES_22k, DAC_ALIGN_12B_R);
       } else {
@@ -206,11 +220,16 @@ int main(void) {
   /* USER CODE BEGIN WHILE */
 
   //-------------------------------------------------------------------------------------------//
+  // Create a bistream from a string
+  //-------------------------------------------------------------------------------------------//
+
+  const char *input_string = "Hello"; // Example input string
+  make_bitstream_from_string(input_string);
+  // make_random_bitstream(); // or fill bitstream[] your way
+
+  //-------------------------------------------------------------------------------------------//
   // Generate the sine wave lookup table
   //-------------------------------------------------------------------------------------------//
-  
-  
-  make_random_bitstream(); // or fill bitstream[] your way
 
   get_sineval_21k();
   get_sineval_22k();
