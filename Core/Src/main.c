@@ -36,7 +36,10 @@
 /* USER CODE BEGIN PD */
 
 #define pi 3.14159265358979323846
-#define MAX_SAMPLES 93 * 2
+#define MAX_SAMPLES_21k 48
+#define MAX_SAMPLES_22k 45
+#define BITSTREAM_LENGTH 32
+#define SINE_WAVE_LENGTH 30
 #define res_8b 256
 #define res_12b 4096
 #define FS_HZ 1000 // sample rate during burst
@@ -62,7 +65,14 @@ TIM_HandleTypeDef htim8;
 
 /* USER CODE BEGIN PV */
 
-uint16_t sine_val[MAX_SAMPLES];
+uint16_t sine_val_21k[MAX_SAMPLES_21k];
+uint16_t sine_val_22k[MAX_SAMPLES_22k];
+
+uint16_t bitstream[BITSTREAM_LENGTH];
+
+static uint32_t current_period = 0;
+static uint32_t current_bit = 0; // 0: 21kHz, 1: 22kHz
+static uint32_t current_idx = 0; // Current index of the bitstream
 
 /* USER CODE END PV */
 
@@ -80,46 +90,63 @@ static void MX_TIM8_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void get_sineval(void) {
-  for (int i = 0; i < MAX_SAMPLES; i++) {
-    sine_val[i] =
-        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / MAX_SAMPLES)));
+void make_random_bitstream(void) {
+  for (int i = 0; i < BITSTREAM_LENGTH; i++) {
+    bitstream[i] = rand() & 1; // Random bit (0 or 1)
   }
 }
 
-void get_sine_two_freq(void) {
-  int n21 = 48; // samples for 21 kHz at fs=1 MHz
-  int n22 = 45; // samples for 22 kHz at fs=1 MHz
-  int idx = 0;
-
-  // --- First part: 21 kHz sine ---
-  for (int i = 0; i < n21 && idx < MAX_SAMPLES; i++, idx++) {
-    sine_val[idx] =
-        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n21)));
+void get_sineval_21k(void) {
+  for (int i = 0; i < MAX_SAMPLES_21k; i++) {
+    sine_val_21k[i] = (uint16_t)((4095.0 / 2.0) *
+                                 (1.0 + sinf(2.0 * pi * i / MAX_SAMPLES_21k)));
   }
+}
 
-  for (int i = 0; i < n21 && idx < MAX_SAMPLES; i++, idx++) {
-    sine_val[idx] =
-        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n21)));
-  }
-
-  // --- Second part: 22 kHz sine ---
-  for (int i = 0; i < n22 && idx < MAX_SAMPLES; i++, idx++) {
-    sine_val[idx] =
-        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n22)));
-  }
-
-  for (int i = 0; i < n22 && idx < MAX_SAMPLES; i++, idx++) {
-    sine_val[idx] =
-        (uint16_t)((4095.0 / 2.0) * (1.0 + sinf(2.0 * pi * i / n22)));
+void get_sineval_22k(void) {
+  for (int i = 0; i < MAX_SAMPLES_22k; i++) {
+    sine_val_22k[i] = (uint16_t)((4095.0 / 2.0) *
+                                 (1.0 + sinf(2.0 * pi * i / MAX_SAMPLES_22k)));
   }
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim->Instance == TIM8) {
-
-    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
   }
+
+  if (htim->Instance == TIM2) {
+    // This interrupt is triggered at the sample rate (1 kHz)
+    // You can add code here to handle each sample event if needed
+  }
+}
+
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
+  // Called when DMA finished sending the entire buffer
+  // Do something here (e.g., switch to 22kHz sine after 50 periods)
+  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+
+  current_period++;
+  if (current_period >= NUM_PERIODS) {
+    current_idx = (current_idx + 1) % BITSTREAM_LENGTH;
+    current_period = 0;
+    uint32_t next_bit = bitstream[current_idx]; // 0 -> 21k, 1 -> 22k
+
+    if (next_bit != current_bit) {
+      HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+      if (next_bit == 0) {
+        HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val_22k,
+                          MAX_SAMPLES_22k, DAC_ALIGN_12B_R);
+      } else {
+        HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val_21k,
+                          MAX_SAMPLES_21k, DAC_ALIGN_12B_R);
+      }
+      current_bit = next_bit;
+    }
+  }
+}
+
+void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
+  // Called halfway through buffer
 }
 
 /* USER CODE END 0 */
@@ -181,16 +208,19 @@ int main(void) {
   //-------------------------------------------------------------------------------------------//
   // Generate the sine wave lookup table
   //-------------------------------------------------------------------------------------------//
+  
+  
+  make_random_bitstream(); // or fill bitstream[] your way
 
-  get_sineval();
-  // get_sine_two_freq();
+  get_sineval_21k();
+  get_sineval_22k();
 
   //-------------------------------------------------------------------------------------------//
   // Generate the sine wave lookup table
   //-------------------------------------------------------------------------------------------//
 
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val, MAX_SAMPLES,
-                    DAC_ALIGN_12B_R);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)sine_val_21k,
+                    MAX_SAMPLES_21k, DAC_ALIGN_12B_R);
 
   //-------------------------------------------------------------------------------------------//
   // STARTING TIMERS AND INTERRUPTS
@@ -200,7 +230,7 @@ int main(void) {
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
 
   // Start TIM2 (sample clock, gated by TIM8)
-  HAL_TIM_Base_Start(&htim2);
+  HAL_TIM_Base_Start_IT(&htim2);
 
   //-------------------------------------------------------------------------------------------//
 
